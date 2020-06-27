@@ -29,14 +29,13 @@ users:
 kubectl config --kubeconfig=sa.kubeconfig use-context default-context 
 
 versions=$(kubectl get --ignore-not-found=true deploy istio-galley -n istio-system  -o=jsonpath='{$.spec.template.spec.containers[*].image}')
-if [[ $versions == *"1.4"* ]]; then
-	kubectl delete --wait=true --timeout=20s deployment istio-galley -n istio-system
-	kubectl delete --wait=true --timeout=20s serviceaccount istio-reader-service-account -n istio-system
-	kubectl delete --wait=true --timeout=20s clusterrolebinding istio-reader
+if [[ $versions == *"1.4"* || $versions == *"1.3"* ]]; then
+	echo "Preparing for migration to Istio 1.5"
+	kubectl delete --wait=true --timeout=20s --ignore-not-found=true deployment istio-galley -n istio-system
+	kubectl delete --wait=true --timeout=20s --ignore-not-found=true validatingwebhookconfigurations.admissionregistration.k8s.io istio-galley
+	kubectl delete --wait=true --timeout=20s --ignore-not-found=true serviceaccount istio-reader-service-account -n istio-system
+	kubectl delete --wait=true --timeout=20s --ignore-not-found=true clusterrolebinding istio-reader
+	sleep 2 # ensure webhook is gone or we get conflict errors
 fi
 
-# The webhook isn't always cleaned up after delete, so we need to delete on every install/upgrade
-kubectl delete --ignore-not-found=true --wait=true --timeout=20s validatingwebhookconfigurations.admissionregistration.k8s.io istio-galley
-sleep 2 # ensure webhook is gone or we get conflict errors
-
-echo "istio webhook cleanup complete"
+echo "Istio webhook cleanup complete"
